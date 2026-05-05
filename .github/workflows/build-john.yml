@@ -112,6 +112,11 @@ jobs:
       with:
         tag_name: ${{ needs.build.outputs.version }}
         name: "John the Ripper ${{ needs.build.outputs.version }}"
+        files: |
+          ${{ github.workspace }}/release-artifacts/*.tar.gz
+        fail_on_unmatched_files: true
+        draft: false
+        prerelease: false
         body: |
           ## John the Ripper Jumbo Edition - Automated Build
           
@@ -126,12 +131,6 @@ jobs:
           tar -xzf john-the-ripper-${{ needs.build.outputs.version }}-linux-x86_64.tar.gz
           cd john-the-ripper-${{ needs.build.outputs.version }}
           ./john --test
-
-        files: |
-          release-artifacts/.tar.gz
-          release-artifacts/.sha256
-          fail_on_unmatched_files: true
-          draft: false
-          prerelease: false
-          env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ```
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
