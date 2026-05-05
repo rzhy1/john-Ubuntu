@@ -2,7 +2,7 @@ name: Build and Release John the Ripper
 
 on:
   push:
-    branches: *^
+    branches: 
   workflow_dispatch:
 
 jobs:
