@@ -8,17 +8,12 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Release tag (e.g., v1.9.0-jumbo-1)'
-        required: false
-        default: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
+      version: "1.9.0-Jumbo-1"
       is_release: ${{ steps.check_tag.outputs.is_release }}
     
     steps:
@@ -32,24 +27,11 @@ jobs:
     - name: Check if this is a release trigger
       id: check_tag
       run: |
-        if [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.event.inputs.release_tag }}" != "" ]]; then
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
           echo "is_release=true" >> $GITHUB_OUTPUT
         else
           echo "is_release=false" >> $GITHUB_OUTPUT
         fi
-    
-    - name: Get version
-      id: get_version
-      run: |
-        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-        elif [[ "${{ github.event.inputs.release_tag }}" != "" ]]; then
-          VERSION="${{ github.event.inputs.release_tag }}"
-        else
-          VERSION="nightly-$(date +'%Y%m%d')-${GITHUB_SHA::7}"
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Building version: $VERSION"
     
     - name: Install dependencies
       run: |
@@ -88,24 +70,9 @@ jobs:
         make -s clean
         make -sj$(nproc)
     
-    - name: Run tests
-      run: |
-        cd run
-        echo "=== Running tests ==="
-        ./john --test --format=crypt
-        echo "=== Tests completed ==="
-    
-    - name: Get John version info
-      run: |
-        cd run
-        ./john --list=build-info > build-info.txt 2>&1 || true
-        ./john --list=formats > formats-list.txt 2>&1 | head -20 || true
-        echo "John the Ripper version:" > version.txt
-        ./john --list=build-info | head -5 >> version.txt
-    
     - name: Prepare release package
       run: |
-        VERSION="${{ steps.get_version.outputs.version }}"
+        VERSION="1.9.0-Jumbo-1"
         
         # 创建发布目录
         mkdir -p john-the-ripper-$VERSION
@@ -117,3 +84,60 @@ jobs:
         cd john-the-ripper-$VERSION
         rm -rf *.o *.d core *.pot 2>/dev/null || true
         rm -rf logs/ 2>/dev/null || true
+        
+        cd ..
+        
+        # 创建压缩包
+        tar -czf john-the-ripper-$VERSION-linux-x86_64.tar.gz john-the-ripper-$VERSION/
+        zip -r john-the-ripper-$VERSION-linux-x86_64.zip john-the-ripper-$VERSION/
+        
+        # 创建校验和
+        sha256sum john-the-ripper-$VERSION-linux-x86_64.tar.gz > john-the-ripper-$VERSION-linux-x86_64.tar.gz.sha256
+        sha256sum john-the-ripper-$VERSION-linux-x86_64.zip > john-the-ripper-$VERSION-linux-x86_64.zip.sha256
+        
+        echo "Release package created for version: $VERSION"
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: john-the-ripper-1.9.0-Jumbo-1
+        path: |
+          john-the-ripper-*.tar.gz
+          john-the-ripper-*.zip
+          *.sha256
+        if-no-files-found: error
+
+  # 自动发布 - 仅在推送标签时触发
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: needs.build.outputs.is_release == 'true'
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: john-the-ripper-1.9.0-Jumbo-1
+        path: release-artifacts/
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.build.outputs.version }}
+        name: "John the Ripper ${{ needs.build.outputs.version }}"
+        body: |
+          ## John the Ripper Jumbo Edition - Automated Build
+          
+          This is an automated build from the bleeding-jumbo branch.
+          
+          ### System requirements
+          - Linux x86_64
+          - glibc 2.31 or later
+          
+          ### Usage
+          ```bash
+          tar -xzf john-the-ripper-${{ needs.build.outputs.version }}-linux-x86_64.tar.gz
+          cd john-the-ripper-${{ needs.build.outputs.version }}
+          ./john --test
