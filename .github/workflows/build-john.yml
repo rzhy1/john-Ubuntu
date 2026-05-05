@@ -18,7 +18,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: openwall/john
         ref: bleeding-jumbo
@@ -98,7 +98,7 @@ jobs:
         echo "Release package created for version: $VERSION"
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: john-the-ripper-1.9.0-Jumbo-1
         path: |
@@ -117,13 +117,13 @@ jobs:
     
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: john-the-ripper-1.9.0-Jumbo-1
         path: release-artifacts/
     
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ needs.build.outputs.version }}
         name: "John the Ripper ${{ needs.build.outputs.version }}"
