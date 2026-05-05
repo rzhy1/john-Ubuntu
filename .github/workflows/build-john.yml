@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: "1.9.0-Jumbo-1"
-      is_release: ${{ steps.check_tag.outputs.is_release }}
     
     steps:
     - name: Checkout code
@@ -23,15 +22,6 @@ jobs:
         repository: openwall/john
         ref: bleeding-jumbo
         fetch-depth: 0
-    
-    - name: Check if this is a release trigger
-      id: check_tag
-      run: |
-        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          echo "is_release=true" >> $GITHUB_OUTPUT
-        else
-          echo "is_release=false" >> $GITHUB_OUTPUT
-        fi
     
     - name: Install dependencies
       run: |
@@ -51,8 +41,7 @@ jobs:
           cpanminus \
           python3 \
           python3-pip \
-          python3-venv \
-          zip
+          python3-venv
     
     - name: Install Perl dependencies
       run: |
@@ -87,13 +76,11 @@ jobs:
         
         cd ..
         
-        # 创建压缩包
+        # 创建 tar 压缩包
         tar -czf john-the-ripper-$VERSION-linux-x86_64.tar.gz john-the-ripper-$VERSION/
-        zip -r john-the-ripper-$VERSION-linux-x86_64.zip john-the-ripper-$VERSION/
         
         # 创建校验和
         sha256sum john-the-ripper-$VERSION-linux-x86_64.tar.gz > john-the-ripper-$VERSION-linux-x86_64.tar.gz.sha256
-        sha256sum john-the-ripper-$VERSION-linux-x86_64.zip > john-the-ripper-$VERSION-linux-x86_64.zip.sha256
         
         echo "Release package created for version: $VERSION"
     
@@ -103,15 +90,13 @@ jobs:
         name: john-the-ripper-1.9.0-Jumbo-1
         path: |
           john-the-ripper-*.tar.gz
-          john-the-ripper-*.zip
           *.sha256
         if-no-files-found: error
 
-  # 自动发布 - 仅在推送标签时触发
+  # 直接发布
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: needs.build.outputs.is_release == 'true'
     permissions:
       contents: write
     
