@@ -1,0 +1,119 @@
+name: Build and Release John the Ripper
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g., v1.9.0-jumbo-1)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_release: ${{ steps.check_tag.outputs.is_release }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        repository: openwall/john
+        ref: bleeding-jumbo
+        fetch-depth: 0
+    
+    - name: Check if this is a release trigger
+      id: check_tag
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]] || [[ "${{ github.event.inputs.release_tag }}" != "" ]]; then
+          echo "is_release=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_release=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Get version
+      id: get_version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        elif [[ "${{ github.event.inputs.release_tag }}" != "" ]]; then
+          VERSION="${{ github.event.inputs.release_tag }}"
+        else
+          VERSION="nightly-$(date +'%Y%m%d')-${GITHUB_SHA::7}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential \
+          libssl-dev \
+          libpcap-dev \
+          libkrb5-dev \
+          libgmp-dev \
+          libnss3-dev \
+          libbz2-dev \
+          zlib1g-dev \
+          autoconf \
+          pkg-config \
+          perl \
+          cpanminus \
+          python3 \
+          python3-pip \
+          python3-venv \
+          zip
+    
+    - name: Install Perl dependencies
+      run: |
+        cd src
+        cpanm --notest --installdeps . || true
+    
+    - name: Configure build
+      run: |
+        cd src
+        ./configure
+    
+    - name: Compile
+      run: |
+        cd src
+        make -s clean
+        make -sj$(nproc)
+    
+    - name: Run tests
+      run: |
+        cd run
+        echo "=== Running tests ==="
+        ./john --test --format=crypt
+        echo "=== Tests completed ==="
+    
+    - name: Get John version info
+      run: |
+        cd run
+        ./john --list=build-info > build-info.txt 2>&1 || true
+        ./john --list=formats > formats-list.txt 2>&1 | head -20 || true
+        echo "John the Ripper version:" > version.txt
+        ./john --list=build-info | head -5 >> version.txt
+    
+    - name: Prepare release package
+      run: |
+        VERSION="${{ steps.get_version.outputs.version }}"
+        
+        # 创建发布目录
+        mkdir -p john-the-ripper-$VERSION
+        
+        # 复制所有运行文件
+        cp -r run/* john-the-ripper-$VERSION/
+        
+        # 清理不必要的文件
+        cd john-the-ripper-$VERSION
+        rm -rf *.o *.d core *.pot 2>/dev/null || true
+        rm -rf logs/ 2>/dev/null || true
