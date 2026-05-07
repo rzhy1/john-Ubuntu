@@ -71,7 +71,7 @@ jobs:
         
         # 清理不必要的文件
         cd john-the-ripper-$VERSION
-        rm -rf *.o *.d core *.pot 2>/dev/null || true
+        rm -rf *.d core *.pot 2>/dev/null || true
         rm -rf logs/ 2>/dev/null || true
         
         cd ..
