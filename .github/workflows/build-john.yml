@@ -41,7 +41,9 @@ jobs:
           opencl-headers \
           ocl-icd-libopencl1 \
           ocl-icd-opencl-dev \
-          pocl-opencl-icd
+          pocl-opencl-icd \
+          nvidia-cuda-toolkit \
+          nvidia-opencl-dev
     
     - name: Install Perl dependencies
       run: |
