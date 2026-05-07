@@ -53,7 +53,9 @@ jobs:
     - name: Configure build
       run: |
         cd src
-        ./configure --enable-opencl
+        ./configure --enable-opencl \
+                --disable-shared \
+                LDFLAGS="-static -static-libgcc -static-libstdc++"
     
     - name: Compile
       run: |
